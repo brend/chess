@@ -146,17 +146,23 @@ impl Board {
         self.squares[Self::index(position)]
     }
 
-    pub fn move_piece(&mut self, from: Position, to: Position) {
+    pub fn move_piece(&mut self, from: Position, to: Position) -> Result<(), MoveError> {
         if from == to {
-            return;
+            return Ok(());
         }
 
         let from_index = Self::index(from);
         let to_index = Self::index(to);
+        self.validate_move(from_index, to_index)?;
         self.squares[to_index] = self.squares[from_index];
         self.squares[from_index] = Square::Empty;
+
+        Ok(())
     }
 
+    fn validate_move(&self, from_index: usize, to_index: usize) -> Result<(), MoveError> {
+        Ok(())
+    }
 }
 
 impl Default for Board {
@@ -164,3 +170,5 @@ impl Default for Board {
         Board::new()
     }
 }
+
+pub enum MoveError {}
