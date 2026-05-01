@@ -1,3 +1,5 @@
+pub type Position = (usize, usize);
+
 #[derive(Copy, Clone, Debug)]
 pub enum Color {
     White,
@@ -12,6 +14,19 @@ pub enum PieceKind {
     Bishop,
     Knight,
     Pawn,
+}
+
+impl PieceKind {
+    pub fn ascii_symbol(self) -> &'static str {
+        match self {
+            PieceKind::King => "K",
+            PieceKind::Queen => "Q",
+            PieceKind::Rook => "R",
+            PieceKind::Bishop => "B",
+            PieceKind::Knight => "N",
+            PieceKind::Pawn => "P",
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -34,12 +49,54 @@ impl Piece {
             color: Color::Black,
         }
     }
+
+    pub fn ascii_symbol(self) -> &'static str {
+        self.kind.ascii_symbol()
+    }
+
+    pub fn unicode_symbol(self) -> &'static str {
+        match (self.color, self.kind) {
+            (Color::White, PieceKind::King) => "♔",
+            (Color::White, PieceKind::Queen) => "♕",
+            (Color::White, PieceKind::Rook) => "♖",
+            (Color::White, PieceKind::Bishop) => "♗",
+            (Color::White, PieceKind::Knight) => "♘",
+            (Color::White, PieceKind::Pawn) => "♙",
+            (Color::Black, PieceKind::King) => "♚",
+            (Color::Black, PieceKind::Queen) => "♛",
+            (Color::Black, PieceKind::Rook) => "♜",
+            (Color::Black, PieceKind::Bishop) => "♝",
+            (Color::Black, PieceKind::Knight) => "♞",
+            (Color::Black, PieceKind::Pawn) => "♟",
+        }
+    }
+
+    pub fn display_symbol(self, use_unicode: bool) -> &'static str {
+        if use_unicode {
+            self.unicode_symbol()
+        } else {
+            self.ascii_symbol()
+        }
+    }
+
+    pub fn color(self) -> Color {
+        self.color
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum Square {
     Empty,
     Taken(Piece),
+}
+
+impl Square {
+    pub fn piece(self) -> Option<Piece> {
+        match self {
+            Square::Empty => None,
+            Square::Taken(piece) => Some(piece),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -81,23 +138,29 @@ impl Board {
         Board { squares }
     }
 
-    pub fn print(&self) {
-        for row in 0..8 {
-            for col in 0..8 {
-                let symbol = match &self.squares[row * 8 + col] {
-                    Square::Empty => ".",
-                    Square::Taken(piece) => match &piece.kind {
-                        PieceKind::Bishop => "B",
-                        PieceKind::Rook => "R",
-                        PieceKind::Knight => "k",
-                        PieceKind::King => "K",
-                        PieceKind::Queen => "Q",
-                        PieceKind::Pawn => "p",
-                    },
-                };
-                print!("{symbol}");
-            }
-            println!();
+    fn index(position: Position) -> usize {
+        position.0 * 8 + position.1
+    }
+
+    pub fn square(&self, position: Position) -> Square {
+        self.squares[Self::index(position)]
+    }
+
+    pub fn move_piece(&mut self, from: Position, to: Position) {
+        if from == to {
+            return;
         }
+
+        let from_index = Self::index(from);
+        let to_index = Self::index(to);
+        self.squares[to_index] = self.squares[from_index];
+        self.squares[from_index] = Square::Empty;
+    }
+
+}
+
+impl Default for Board {
+    fn default() -> Board {
+        Board::new()
     }
 }
