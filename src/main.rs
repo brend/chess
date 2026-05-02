@@ -14,7 +14,7 @@ use ratatui::{
     widgets::{Block, Paragraph, Widget},
 };
 
-use chess::{Board, Position};
+use chess::{GameState, Position};
 use ui::{board_text, prefers_unicode_symbols};
 
 fn main() -> io::Result<()> {
@@ -23,7 +23,7 @@ fn main() -> io::Result<()> {
 
 #[derive(Debug)]
 pub struct App {
-    board: Board,
+    game: GameState,
     cursor: Position,
     selected: Option<Position>,
     use_unicode_symbols: bool,
@@ -33,8 +33,8 @@ pub struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            board: Board::default(),
-            cursor: (0, 0),
+            game: GameState::default(),
+            cursor: Position::zero(),
             selected: None,
             use_unicode_symbols: prefers_unicode_symbols(),
             exit: false,
@@ -95,7 +95,7 @@ impl App {
         match self.selected {
             Some(from) if from == self.cursor => self.selected = None,
             Some(from) => {
-                self.board.move_piece(from, self.cursor);
+                self.game.move_piece(from, self.cursor);
                 self.selected = None;
             }
             None => {
@@ -128,7 +128,7 @@ impl Widget for &App {
             .border_set(border::THICK);
 
         let counter_text = board_text(
-            &self.board,
+            &self.game.board,
             self.cursor,
             self.selected,
             self.use_unicode_symbols,

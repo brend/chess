@@ -55,7 +55,9 @@ pub fn board_text(
 
     lines.push(Line::from(vec![Span::raw("   ")]));
     lines.push(Line::from(
-        std::iter::once(Span::raw("   ")).chain(files.iter().cloned()).collect::<Vec<_>>(),
+        std::iter::once(Span::raw("   "))
+            .chain(files.iter().cloned())
+            .collect::<Vec<_>>(),
     ));
 
     for row in 0..8 {
@@ -67,7 +69,7 @@ pub fn board_text(
         ));
 
         for col in 0..8 {
-            let position = (row, col);
+            let position = Position(row, col);
             let mut square_style = if (row + col) % 2 == 0 {
                 Style::default().bg(TuiColor::Rgb(240, 217, 181))
             } else {
@@ -102,7 +104,9 @@ pub fn board_text(
     }
 
     lines.push(Line::from(
-        std::iter::once(Span::raw("   ")).chain(files).collect::<Vec<_>>(),
+        std::iter::once(Span::raw("   "))
+            .chain(files)
+            .collect::<Vec<_>>(),
     ));
 
     Text::from(lines)

@@ -1,4 +1,21 @@
-pub type Position = (usize, usize);
+use std::cmp;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Position(pub usize, pub usize);
+
+impl Position {
+    pub fn zero() -> Position {
+        Position(0, 0)
+    }
+
+    pub fn is_adjacent(&self, other: Position) -> bool {
+        unimplemented!()
+    }
+
+    pub fn is_on_diagonal(&self, other: Position) -> bool {
+        unimplemented!()
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum Color {
@@ -146,22 +163,19 @@ impl Board {
         self.squares[Self::index(position)]
     }
 
-    pub fn move_piece(&mut self, from: Position, to: Position) -> Result<(), MoveError> {
+    pub fn move_piece(&mut self, from: Position, to: Position) {
         if from == to {
-            return Ok(());
+            return;
         }
 
         let from_index = Self::index(from);
         let to_index = Self::index(to);
-        self.validate_move(from_index, to_index)?;
         self.squares[to_index] = self.squares[from_index];
         self.squares[from_index] = Square::Empty;
-
-        Ok(())
     }
 
-    fn validate_move(&self, from_index: usize, to_index: usize) -> Result<(), MoveError> {
-        Ok(())
+    pub fn valid_position(&self, position: Position) -> bool {
+        position.0 >= 0 && position.0 < 8 && position.1 >= 0 && position.1 < 8
     }
 }
 
@@ -171,4 +185,69 @@ impl Default for Board {
     }
 }
 
-pub enum MoveError {}
+pub enum MoveError {
+    EmptyMove,
+    InvalidFromPosition,
+    InvalidToPosition,
+    EmptyFromSquare,
+    IllegalMoveForPiece,
+}
+
+#[derive(Default, Debug)]
+pub struct GameState {
+    pub board: Board,
+    move_index: u32,
+}
+
+impl GameState {
+    pub fn move_piece(&mut self, from: Position, to: Position) -> Result<(), MoveError> {
+        self.validate_move(from, to)?;
+        self.board.move_piece(from, to);
+        Ok(())
+    }
+
+    fn validate_move(&self, from: Position, to: Position) -> Result<(), MoveError> {
+        if from == to {
+            return Err(MoveError::EmptyMove);
+        }
+
+        if !self.board.valid_position(from) {
+            return Err(MoveError::InvalidFromPosition);
+        }
+
+        if !self.board.valid_position(to) {
+            return Err(MoveError::InvalidToPosition);
+        };
+
+        return match self.board.square(from) {
+            Square::Taken(piece) => self.validate_move_for_piece(piece, from, to),
+            Square::Empty => Err(MoveError::EmptyFromSquare),
+        };
+    }
+
+    fn validate_move_for_piece(
+        &self,
+        piece: Piece,
+        from: Position,
+        to: Position,
+    ) -> Result<(), MoveError> {
+        let legal_move = match piece.kind {
+            PieceKind::King => to.is_on_diagonal(from) && to.is_adjacent(from),
+            _ => unimplemented!(),
+        };
+
+        if legal_move {
+            return Ok(());
+        } else {
+            return Err(MoveError::IllegalMoveForPiece);
+        }
+    }
+
+    fn current_player(&self) -> Color {
+        if self.move_index % 2 == 0 {
+            Color::White
+        } else {
+            Color::Black
+        }
+    }
+}
