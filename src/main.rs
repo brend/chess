@@ -87,15 +87,19 @@ impl App {
     }
 
     fn move_cursor(&mut self, row_delta: isize, col_delta: isize) {
-        self.cursor.0 = self.cursor.0.saturating_add_signed(row_delta).min(7);
-        self.cursor.1 = self.cursor.1.saturating_add_signed(col_delta).min(7);
+        self.cursor = Position::new(
+            self.cursor.row().saturating_add_signed(row_delta).min(7),
+            self.cursor.col().saturating_add_signed(col_delta).min(7),
+        );
     }
 
     fn confirm_selection(&mut self) {
         match self.selected {
             Some(from) if from == self.cursor => self.selected = None,
             Some(from) => {
-                self.game.move_piece(from, self.cursor);
+                self.game
+                    .move_piece(&from, &self.cursor)
+                    .expect("something went wrong");
                 self.selected = None;
             }
             None => {

@@ -69,7 +69,7 @@ pub fn board_text(
         ));
 
         for col in 0..8 {
-            let position = Position(row, col);
+            let position = Position::new(row, col);
             let mut square_style = if (row + col) % 2 == 0 {
                 Style::default().bg(TuiColor::Rgb(240, 217, 181))
             } else {
@@ -86,7 +86,7 @@ pub fn board_text(
                 square_style = square_style.add_modifier(Modifier::UNDERLINED | Modifier::REVERSED);
             }
 
-            let span = match board.square(position).piece() {
+            let span = match board.square(&position).piece() {
                 Some(piece) => Span::styled(
                     format!(" {} ", piece.display_symbol(use_unicode_symbols)),
                     square_style.patch(piece_style(piece.color())),
