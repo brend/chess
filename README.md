@@ -1,4 +1,4 @@
-# chess
+# ♘ chess
 
 It's chess. C'mon, you know what I'm talking about.
 
