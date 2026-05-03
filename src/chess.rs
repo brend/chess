@@ -285,6 +285,7 @@ pub enum MoveError {
     IllegalMoveForPiece,
     WrongPlayer,
     PathBlocked,
+    InvalidDestination,
 }
 
 impl fmt::Display for MoveError {
@@ -295,6 +296,7 @@ impl fmt::Display for MoveError {
             MoveError::IllegalMoveForPiece => write!(f, "That piece cannot move there."),
             MoveError::WrongPlayer => write!(f, "It is not that piece's turn."),
             MoveError::PathBlocked => write!(f, "Another piece is blocking that move."),
+            MoveError::InvalidDestination => write!(f, "That piece cannot move there."),
         }
     }
 }
@@ -322,7 +324,7 @@ impl GameState {
             Square::Taken(piece) => {
                 self.validate_moving_player(&piece)?;
                 self.validate_move_for_piece(piece, from, to)?;
-                self.validate_move_path(from, to)?;
+                self.validate_move_path(piece, from, to)?;
             }
             Square::Empty => return Err(MoveError::EmptyFromSquare),
         }
@@ -330,15 +332,30 @@ impl GameState {
         Ok(())
     }
 
-    fn validate_move_path(&self, from: &Position, to: &Position) -> Result<(), MoveError> {
+    fn validate_move_path(
+        &self,
+        piece: Piece,
+        from: &Position,
+        to: &Position,
+    ) -> Result<(), MoveError> {
         let path = from.path(to);
+
+        if path.is_empty() {
+            return Ok(());
+        }
+
         let limit = path.len() - 1;
 
-        for i in 1..limit {
-            let position = &path[i];
+        for position in path.iter().take(limit).skip(1) {
             let Square::Empty = self.board.square(position) else {
                 return Err(MoveError::PathBlocked);
             };
+        }
+
+        if let Square::Taken(other_piece) = self.board.square(path.last().unwrap())
+            && piece.color() == other_piece.color()
+        {
+            return Err(MoveError::InvalidDestination);
         }
 
         Ok(())
