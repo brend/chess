@@ -390,3 +390,311 @@ impl GameState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pos(rank: usize, file: usize) -> Position {
+        Position::new(rank, file)
+    }
+
+    fn empty_board() -> Board {
+        Board {
+            squares: [Square::Empty; 64],
+        }
+    }
+
+    fn game_with(board: Board, move_index: u32) -> GameState {
+        GameState { board, move_index }
+    }
+
+    fn put(board: &mut Board, position: Position, piece: Piece) {
+        board.squares[Board::index(&position)] = Square::Taken(piece);
+    }
+
+    fn empty_game_with(piece: Piece, position: Position) -> GameState {
+        let mut board = empty_board();
+        put(&mut board, position, piece);
+        game_with(
+            board,
+            match piece.color() {
+                Color::White => 0,
+                Color::Black => 1,
+            },
+        )
+    }
+
+    fn assert_move_ok(game: &mut GameState, from: Position, to: Position) {
+        assert!(
+            game.move_piece(&from, &to).is_ok(),
+            "expected move from {from:?} to {to:?} to be legal"
+        );
+    }
+
+    fn assert_move_err(game: &mut GameState, from: Position, to: Position) {
+        assert!(
+            game.move_piece(&from, &to).is_err(),
+            "expected move from {from:?} to {to:?} to be illegal"
+        );
+    }
+
+    #[test]
+    fn white_moves_first_and_turns_alternate() {
+        let mut game = GameState::default();
+
+        assert_move_err(&mut game, pos(6, 0), pos(5, 0));
+        assert_move_ok(&mut game, pos(1, 0), pos(2, 0));
+        assert_move_err(&mut game, pos(1, 1), pos(2, 1));
+        assert_move_ok(&mut game, pos(6, 0), pos(5, 0));
+    }
+
+    #[test]
+    fn rejects_empty_source_square_and_empty_move() {
+        let mut game = GameState::default();
+
+        assert_move_err(&mut game, pos(3, 3), pos(4, 3));
+        assert_move_err(&mut game, pos(1, 0), pos(1, 0));
+    }
+
+    #[test]
+    fn sliding_pieces_move_on_clear_files_ranks_and_diagonals() {
+        let mut game = empty_game_with(Piece::white(PieceKind::Queen), pos(3, 3));
+        assert_move_ok(&mut game, pos(3, 3), pos(3, 7));
+
+        let mut game = empty_game_with(Piece::white(PieceKind::Rook), pos(3, 3));
+        assert_move_ok(&mut game, pos(3, 3), pos(7, 3));
+
+        let mut game = empty_game_with(Piece::white(PieceKind::Bishop), pos(3, 3));
+        assert_move_ok(&mut game, pos(3, 3), pos(6, 6));
+    }
+
+    #[test]
+    fn sliding_pieces_cannot_jump_over_other_pieces() {
+        let mut board = empty_board();
+        put(&mut board, pos(0, 0), Piece::white(PieceKind::Rook));
+        put(&mut board, pos(0, 3), Piece::black(PieceKind::Bishop));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(0, 0), pos(0, 7));
+    }
+
+    #[test]
+    fn pieces_can_capture_enemies_but_not_friendly_pieces() {
+        let mut board = empty_board();
+        put(&mut board, pos(0, 0), Piece::white(PieceKind::Rook));
+        put(&mut board, pos(0, 4), Piece::black(PieceKind::Bishop));
+
+        let mut game = game_with(board, 0);
+        assert_move_ok(&mut game, pos(0, 0), pos(0, 4));
+
+        let mut board = empty_board();
+        put(&mut board, pos(0, 0), Piece::white(PieceKind::Rook));
+        put(&mut board, pos(0, 4), Piece::white(PieceKind::Bishop));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(0, 0), pos(0, 4));
+    }
+
+    #[test]
+    fn knights_move_in_an_l_shape() {
+        assert!(Piece::white(PieceKind::Knight).legal_move(&pos(3, 3), &pos(5, 4)));
+        assert!(Piece::white(PieceKind::Knight).legal_move(&pos(3, 3), &pos(4, 5)));
+        assert!(!Piece::white(PieceKind::Knight).legal_move(&pos(3, 3), &pos(5, 5)));
+    }
+
+    #[test]
+    fn pawns_can_advance_one_square_or_two_from_their_starting_square() {
+        let mut game = empty_game_with(Piece::white(PieceKind::Pawn), pos(1, 4));
+        assert_move_ok(&mut game, pos(1, 4), pos(3, 4));
+
+        let mut game = empty_game_with(Piece::black(PieceKind::Pawn), pos(6, 4));
+        assert_move_ok(&mut game, pos(6, 4), pos(4, 4));
+
+        let mut game = empty_game_with(
+            Piece::white(PieceKind::Pawn).increase_move_count(),
+            pos(2, 4),
+        );
+        assert_move_err(&mut game, pos(2, 4), pos(4, 4));
+    }
+
+    #[test]
+    #[ignore = "pawn file and capture rules are not implemented yet"]
+    fn pawns_must_advance_on_the_same_file_without_capturing() {
+        let mut game = empty_game_with(Piece::white(PieceKind::Pawn), pos(1, 4));
+        assert_move_err(&mut game, pos(1, 4), pos(2, 5));
+
+        let mut board = empty_board();
+        put(&mut board, pos(1, 4), Piece::white(PieceKind::Pawn));
+        put(&mut board, pos(2, 4), Piece::black(PieceKind::Knight));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(1, 4), pos(2, 4));
+    }
+
+    #[test]
+    #[ignore = "pawn diagonal captures are not implemented yet"]
+    fn pawns_capture_one_square_diagonally_forward() {
+        let mut board = empty_board();
+        put(&mut board, pos(1, 4), Piece::white(PieceKind::Pawn));
+        put(&mut board, pos(2, 5), Piece::black(PieceKind::Knight));
+
+        let mut game = game_with(board, 0);
+        assert_move_ok(&mut game, pos(1, 4), pos(2, 5));
+
+        let mut board = empty_board();
+        put(&mut board, pos(6, 4), Piece::black(PieceKind::Pawn));
+        put(&mut board, pos(5, 3), Piece::white(PieceKind::Knight));
+
+        let mut game = game_with(board, 1);
+        assert_move_ok(&mut game, pos(6, 4), pos(5, 3));
+
+        let mut game = empty_game_with(Piece::white(PieceKind::Pawn), pos(1, 4));
+        assert_move_err(&mut game, pos(1, 4), pos(2, 5));
+    }
+
+    #[test]
+    #[ignore = "king orthogonal movement is not implemented yet"]
+    fn kings_move_one_square_in_any_direction() {
+        let mut game = empty_game_with(Piece::white(PieceKind::King), pos(3, 3));
+        assert_move_ok(&mut game, pos(3, 3), pos(4, 3));
+
+        let mut game = empty_game_with(Piece::white(PieceKind::King), pos(3, 3));
+        assert_move_ok(&mut game, pos(3, 3), pos(4, 4));
+    }
+
+    #[test]
+    #[ignore = "knight moves are incorrectly passed through path validation"]
+    fn knights_can_jump_over_occupied_squares() {
+        let mut board = empty_board();
+        put(&mut board, pos(0, 1), Piece::white(PieceKind::Knight));
+        put(&mut board, pos(1, 1), Piece::white(PieceKind::Pawn));
+        put(&mut board, pos(2, 2), Piece::black(PieceKind::Pawn));
+
+        let mut game = game_with(board, 0);
+        assert_move_ok(&mut game, pos(0, 1), pos(2, 2));
+    }
+
+    #[test]
+    #[ignore = "check detection is not implemented yet"]
+    fn kings_cannot_move_into_check() {
+        let mut board = empty_board();
+        put(&mut board, pos(0, 4), Piece::white(PieceKind::King));
+        put(&mut board, pos(1, 7), Piece::black(PieceKind::Rook));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(0, 4), pos(1, 5));
+    }
+
+    #[test]
+    #[ignore = "self-check detection is not implemented yet"]
+    fn pieces_cannot_move_if_they_expose_their_own_king_to_check() {
+        let mut board = empty_board();
+        put(&mut board, pos(0, 4), Piece::white(PieceKind::King));
+        put(&mut board, pos(1, 4), Piece::white(PieceKind::Rook));
+        put(&mut board, pos(7, 4), Piece::black(PieceKind::Rook));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(1, 4), pos(1, 5));
+    }
+
+    #[test]
+    #[ignore = "castling is not implemented yet"]
+    fn castling_moves_the_king_and_rook_when_all_castling_conditions_are_met() {
+        let mut board = empty_board();
+        put(&mut board, pos(0, 4), Piece::white(PieceKind::King));
+        put(&mut board, pos(0, 7), Piece::white(PieceKind::Rook));
+
+        let mut game = game_with(board, 0);
+        assert_move_ok(&mut game, pos(0, 4), pos(0, 6));
+
+        assert!(matches!(
+            game.board.square(&pos(0, 6)),
+            Square::Taken(Piece {
+                color: Color::White,
+                kind: PieceKind::King,
+                ..
+            })
+        ));
+        assert!(matches!(
+            game.board.square(&pos(0, 5)),
+            Square::Taken(Piece {
+                color: Color::White,
+                kind: PieceKind::Rook,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    #[ignore = "castling is not implemented yet"]
+    fn castling_is_illegal_after_the_king_or_rook_has_moved_or_through_check() {
+        let mut board = empty_board();
+        put(
+            &mut board,
+            pos(0, 4),
+            Piece::white(PieceKind::King).increase_move_count(),
+        );
+        put(&mut board, pos(0, 7), Piece::white(PieceKind::Rook));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(0, 4), pos(0, 6));
+
+        let mut board = empty_board();
+        put(&mut board, pos(0, 4), Piece::white(PieceKind::King));
+        put(&mut board, pos(0, 7), Piece::white(PieceKind::Rook));
+        put(&mut board, pos(7, 5), Piece::black(PieceKind::Rook));
+
+        let mut game = game_with(board, 0);
+        assert_move_err(&mut game, pos(0, 4), pos(0, 6));
+    }
+
+    #[test]
+    #[ignore = "en passant is not implemented yet"]
+    fn en_passant_captures_only_immediately_after_a_two_square_pawn_advance() {
+        let mut board = empty_board();
+        put(&mut board, pos(4, 4), Piece::white(PieceKind::Pawn));
+        put(&mut board, pos(6, 5), Piece::black(PieceKind::Pawn));
+
+        let mut game = game_with(board, 1);
+        assert_move_ok(&mut game, pos(6, 5), pos(4, 5));
+        assert_move_ok(&mut game, pos(4, 4), pos(5, 5));
+        assert!(matches!(game.board.square(&pos(4, 5)), Square::Empty));
+    }
+
+    #[test]
+    #[ignore = "pawn promotion is not implemented yet"]
+    fn pawns_promote_when_they_reach_the_last_rank() {
+        let mut game = empty_game_with(Piece::white(PieceKind::Pawn), pos(6, 0));
+        assert_move_ok(&mut game, pos(6, 0), pos(7, 0));
+
+        assert!(matches!(
+            game.board.square(&pos(7, 0)),
+            Square::Taken(Piece {
+                color: Color::White,
+                kind: PieceKind::Queen,
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    #[ignore = "checkmate state is not implemented yet"]
+    fn checkmate_ends_the_game() {
+        panic!("GameState needs a game result API before checkmate can be asserted");
+    }
+
+    #[test]
+    #[ignore = "stalemate state is not implemented yet"]
+    fn stalemate_ends_the_game_as_a_draw() {
+        panic!("GameState needs a game result API before stalemate can be asserted");
+    }
+
+    #[test]
+    #[ignore = "draw state is not implemented yet"]
+    fn draw_rules_cover_fifty_move_threefold_repetition_and_insufficient_material() {
+        panic!(
+            "GameState needs history, halfmove clock, and game result APIs before draw rules can be asserted"
+        );
+    }
+}
