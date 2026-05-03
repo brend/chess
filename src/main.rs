@@ -97,7 +97,10 @@ impl App {
 
     fn confirm_selection(&mut self) {
         match self.selected {
-            Some(from) if from == self.cursor => self.clear_selection(),
+            Some(from) if from == self.cursor => {
+                self.clear_selection();
+                self.move_error = None;
+            }
             Some(from) => match self.game.move_piece(&from, &self.cursor) {
                 Ok(()) => {
                     self.selected = None;
@@ -105,6 +108,7 @@ impl App {
                 }
                 Err(error) => {
                     self.move_error = Some(error.to_string());
+                    self.clear_selection();
                 }
             },
             None => {
@@ -116,7 +120,6 @@ impl App {
 
     fn clear_selection(&mut self) {
         self.selected = None;
-        self.move_error = None;
     }
 }
 
