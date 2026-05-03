@@ -8,9 +8,9 @@ use ratatui::{
     DefaultTerminal, Frame,
     buffer::Buffer,
     layout::Rect,
-    style::Stylize,
+    style::{Color, Modifier, Style, Stylize},
     symbols::border,
-    text::Line,
+    text::{Line, Span},
     widgets::{Block, Paragraph, Widget},
 };
 
@@ -26,6 +26,7 @@ pub struct App {
     game: GameState,
     cursor: Position,
     selected: Option<Position>,
+    move_error: Option<String>,
     use_unicode_symbols: bool,
     exit: bool,
 }
@@ -36,6 +37,7 @@ impl Default for App {
             game: GameState::default(),
             cursor: Position::zero(),
             selected: None,
+            move_error: None,
             use_unicode_symbols: prefers_unicode_symbols(),
             exit: false,
         }
@@ -95,21 +97,26 @@ impl App {
 
     fn confirm_selection(&mut self) {
         match self.selected {
-            Some(from) if from == self.cursor => self.selected = None,
-            Some(from) => {
-                self.game
-                    .move_piece(&from, &self.cursor)
-                    .expect("something went wrong");
-                self.selected = None;
-            }
+            Some(from) if from == self.cursor => self.clear_selection(),
+            Some(from) => match self.game.move_piece(&from, &self.cursor) {
+                Ok(()) => {
+                    self.selected = None;
+                    self.move_error = None;
+                }
+                Err(error) => {
+                    self.move_error = Some(error.to_string());
+                }
+            },
             None => {
                 self.selected = Some(self.cursor);
+                self.move_error = None;
             }
         }
     }
 
     fn clear_selection(&mut self) {
         self.selected = None;
+        self.move_error = None;
     }
 }
 
@@ -131,12 +138,25 @@ impl Widget for &App {
             .title_bottom(instructions.centered())
             .border_set(border::THICK);
 
-        let counter_text = board_text(
+        let mut counter_text = board_text(
             &self.game.board,
             self.cursor,
             self.selected,
             self.use_unicode_symbols,
         );
+        counter_text.lines.push(Line::from(""));
+
+        if let Some(error) = &self.move_error {
+            counter_text.lines.push(Line::from(vec![
+                Span::styled(
+                    "Invalid move: ",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(error.clone(), Color::Red),
+            ]));
+        } else {
+            counter_text.lines.push(Line::from(""));
+        }
 
         Paragraph::new(counter_text)
             .centered()

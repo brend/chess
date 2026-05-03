@@ -1,4 +1,4 @@
-use std::cmp;
+use std::{cmp, fmt};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Position {
@@ -285,6 +285,18 @@ pub enum MoveError {
     IllegalMoveForPiece,
     WrongPlayer,
     PathBlocked,
+}
+
+impl fmt::Display for MoveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MoveError::EmptyMove => write!(f, "Choose a different destination square."),
+            MoveError::EmptyFromSquare => write!(f, "Choose a square with a piece to move."),
+            MoveError::IllegalMoveForPiece => write!(f, "That piece cannot move there."),
+            MoveError::WrongPlayer => write!(f, "It is not that piece's turn."),
+            MoveError::PathBlocked => write!(f, "Another piece is blocking that move."),
+        }
+    }
 }
 
 #[derive(Default, Debug)]
