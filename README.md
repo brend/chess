@@ -12,7 +12,7 @@ Happy now?
 
 ## Building chess
 
-To build chess, you need the [Rust toolchain](https://rust-lang.org).
+To build chess, you need the [Rust toolchain](https://rust-lang.org/learn/get-started/).
 
 Build it like so:
 
