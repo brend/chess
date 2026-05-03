@@ -2,24 +2,41 @@ use std::cmp;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Position {
-    row: usize,
-    col: usize,
+    rank: usize,
+    file: usize,
 }
 
 impl Position {
-    pub fn new(row: usize, col: usize) -> Position {
-        if row >= 8 || col >= 8 {
+    pub fn new(rank: usize, file: usize) -> Position {
+        if rank >= 8 || file >= 8 {
             panic!("Position out of bounds");
         }
-        Position { row, col }
+        Position { rank, file }
+    }
+
+    pub fn path(&self, to: &Position) -> Vec<Position> {
+        let mut path = vec![];
+        let dx = (to.file as isize - self.file as isize).signum();
+        let dy = (to.rank as isize - self.rank as isize).signum();
+        let mut position = *self;
+
+        while &position != to {
+            path.push(position);
+            position = Position::new(
+                position.rank.strict_add_signed(dy),
+                position.file.strict_add_signed(dx),
+            );
+        }
+        path.push(position);
+        path
     }
 
     pub fn row(&self) -> usize {
-        self.row
+        self.rank
     }
 
     pub fn col(&self) -> usize {
-        self.col
+        self.file
     }
 
     pub fn zero() -> Position {
@@ -54,22 +71,22 @@ impl Position {
     }
 
     pub fn is_one_up(&self, from: &Position) -> bool {
-        self.row == from.row + 1
+        self.rank == from.rank + 1
     }
 
     pub fn is_two_up(&self, from: &Position) -> bool {
-        self.row == from.row + 2
+        self.rank == from.rank + 2
     }
     pub fn is_one_down(&self, from: &Position) -> bool {
-        self.row + 1 == from.row
+        self.rank + 1 == from.rank
     }
 
     pub fn is_two_down(&self, from: &Position) -> bool {
-        self.row + 2 == from.row
+        self.rank + 2 == from.rank
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum Color {
     White,
     Black,
@@ -159,23 +176,17 @@ impl Piece {
 
     pub fn legal_move(&self, from: &Position, to: &Position) -> bool {
         match self.kind {
-            PieceKind::King => to.is_on_diagonal(from) && to.is_adjacent(from), // TODO: castling
+            PieceKind::King => to.is_on_diagonal(from) && to.is_adjacent(from),
             PieceKind::Queen => to.is_on_diagonal(from) || to.is_on_main_axis(from),
             PieceKind::Rook => to.is_on_main_axis(from),
             PieceKind::Bishop => to.is_on_diagonal(from),
             PieceKind::Knight => to.is_ell_away(from),
-            PieceKind::Pawn => {
-                match self.color {
-                    Color::White => {
-                        to.is_one_up(from) || self.move_count == 0 && to.is_two_up(from)
-                    }
-                    Color::Black => {
-                        to.is_one_down(from) || self.move_count == 0 && to.is_two_down(from)
-                    }
+            PieceKind::Pawn => match self.color {
+                Color::White => to.is_one_up(from) || self.move_count == 0 && to.is_two_up(from),
+                Color::Black => {
+                    to.is_one_down(from) || self.move_count == 0 && to.is_two_down(from)
                 }
-
-                //                to.is_one_ahead(from) || piece.move_count == 0 && to.is_two_ahead(from)
-            }
+            },
         }
     }
 }
@@ -272,6 +283,8 @@ pub enum MoveError {
     EmptyMove,
     EmptyFromSquare,
     IllegalMoveForPiece,
+    WrongPlayer,
+    PathBlocked,
 }
 
 #[derive(Default, Debug)]
@@ -294,8 +307,44 @@ impl GameState {
         }
 
         match self.board.square(from) {
-            Square::Taken(piece) => self.validate_move_for_piece(piece, from, to),
-            Square::Empty => Err(MoveError::EmptyFromSquare),
+            Square::Taken(piece) => {
+                self.validate_moving_player(&piece)?;
+                self.validate_move_for_piece(piece, from, to)?;
+                self.validate_move_path(from, to)?;
+            }
+            Square::Empty => return Err(MoveError::EmptyFromSquare),
+        }
+
+        Ok(())
+    }
+
+    fn validate_move_path(&self, from: &Position, to: &Position) -> Result<(), MoveError> {
+        let path = from.path(to);
+        let limit = path.len() - 1;
+
+        for i in 1..limit {
+            let position = &path[i];
+            let Square::Empty = self.board.square(position) else {
+                return Err(MoveError::PathBlocked);
+            };
+        }
+
+        Ok(())
+    }
+
+    fn current_player(&self) -> Color {
+        if self.move_index.is_multiple_of(2) {
+            Color::White
+        } else {
+            Color::Black
+        }
+    }
+
+    fn validate_moving_player(&self, piece: &Piece) -> Result<(), MoveError> {
+        if piece.color() == self.current_player() {
+            Ok(())
+        } else {
+            Err(MoveError::WrongPlayer)
         }
     }
 
