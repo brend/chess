@@ -142,7 +142,7 @@ impl Widget for &App {
             .border_set(border::THICK);
 
         let mut counter_text = board_text(
-            &self.game.board,
+            self.game.board(),
             self.cursor,
             self.selected,
             self.use_unicode_symbols,

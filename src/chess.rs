@@ -303,11 +303,15 @@ impl fmt::Display for MoveError {
 
 #[derive(Default, Debug)]
 pub struct GameState {
-    pub board: Board,
+    board: Board,
     move_index: u32,
 }
 
 impl GameState {
+    pub fn board(&self) -> &Board {
+        &self.board
+    }
+
     pub fn move_piece(&mut self, from: &Position, to: &Position) -> Result<(), MoveError> {
         self.validate_move(from, to)?;
         self.board.move_piece(from, to);
